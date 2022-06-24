@@ -2,7 +2,7 @@
 
 use bevy::{core::FixedTimestep, math::vec3, prelude::*, sprite::Anchor};
 
-mod core;
+mod game;
 
 const UNIT_PX: f32 = 20.;
 const BORDER_SIZE: f32 = 2.;
@@ -32,7 +32,7 @@ impl RawInput {
     }
 }
 
-impl core::Input for RawInput {
+impl game::Input for RawInput {
     fn move_left(&self) -> bool {
         self.move_left
     }
@@ -63,10 +63,10 @@ struct UI {
 }
 
 #[derive(Component)]
-struct PointComponent(core::Id);
+struct PointComponent(game::Id);
 
 #[derive(Component)]
-struct BlockComponent(core::Id);
+struct BlockComponent(game::Id);
 
 fn main() {
     App::new()
@@ -97,7 +97,7 @@ fn units_to_px(units: usize) -> f32 {
     units as f32 * UNIT_PX
 }
 
-fn pos_to_vec3(pos: core::Position) -> Vec3 {
+fn pos_to_vec3(pos: game::Position) -> Vec3 {
     vec3(units_to_px(pos.0), units_to_px(pos.1), 0.)
 }
 
@@ -122,8 +122,8 @@ fn setup_ui(commands: &mut Commands) -> UI {
         .id();
 
     // board
-    let board_width = units_to_px(core::BOARD_WIDTH);
-    let board_height = units_to_px(core::BOARD_HEIGHT);
+    let board_width = units_to_px(game::BOARD_WIDTH);
+    let board_height = units_to_px(game::BOARD_HEIGHT);
     let board_with_border_width = board_width + BORDER_SIZE * 2.;
     let board_with_border_height = board_height + BORDER_SIZE * 2.;
 
@@ -175,8 +175,8 @@ fn setup_ui(commands: &mut Commands) -> UI {
     UI { board }
 }
 
-fn setup_game(commands: &mut Commands, ui: &UI) -> core::Game {
-    let game = core::Game::new();
+fn setup_game(commands: &mut Commands, ui: &UI) -> game::Game {
+    let game = game::Game::new();
     spawn_block(
         commands,
         game.active_block(),
@@ -188,13 +188,13 @@ fn setup_game(commands: &mut Commands, ui: &UI) -> core::Game {
 
 fn spawn_block(
     commands: &mut Commands,
-    block: &core::Block,
-    block_pos: core::Position,
+    block: &game::Block,
+    block_pos: game::Position,
     parent: Entity,
 ) {
     for point in block.points() {
         let point_pos = block.get_point_position(point.id).unwrap();
-        let point_pos = core::add_positions(block_pos, point_pos);
+        let point_pos = game::add_positions(block_pos, point_pos);
         let point_entity = spawn_point(commands, point, point_pos, parent);
         commands
             .entity(point_entity)
@@ -204,8 +204,8 @@ fn spawn_block(
 
 fn spawn_point(
     commands: &mut Commands,
-    point: &core::Point,
-    point_pos: core::Position,
+    point: &game::Point,
+    point_pos: game::Position,
     parent: Entity,
 ) -> Entity {
     let point_entity = commands
@@ -244,7 +244,7 @@ fn check_input(bevy_input: Res<Input<KeyCode>>, mut input: ResMut<RawInput>) {
 
 fn tick(
     mut commands: Commands,
-    mut game: ResMut<core::Game>,
+    mut game: ResMut<game::Game>,
     ui: Res<UI>,
     mut input: ResMut<RawInput>,
     block_points: Query<Entity, With<BlockComponent>>,
@@ -254,7 +254,7 @@ fn tick(
     input.reset();
 
     for change in changes {
-        use crate::core::TickChange::*;
+        use crate::game::TickChange::*;
         match change {
             BlockLocked => {
                 for point_entity in block_points.iter() {
@@ -274,7 +274,7 @@ fn tick(
 }
 
 fn update_board_points(
-    game: Res<core::Game>,
+    game: Res<game::Game>,
     mut board_points: Query<(&PointComponent, &mut Transform), Without<BlockComponent>>,
 ) {
     for (point, mut transform) in board_points.iter_mut() {
@@ -284,14 +284,14 @@ fn update_board_points(
 }
 
 fn update_block_points(
-    game: Res<core::Game>,
+    game: Res<game::Game>,
     mut board_points: Query<(&PointComponent, &mut Transform), With<BlockComponent>>,
 ) {
     let block = game.active_block();
     let block_pos = game.active_block_position();
     for (point, mut transform) in board_points.iter_mut() {
         let point_pos = block.get_point_position(point.0).unwrap();
-        let point_pos = core::add_positions(block_pos, point_pos);
+        let point_pos = game::add_positions(block_pos, point_pos);
         transform.translation = pos_to_vec3(point_pos);
     }
 }
