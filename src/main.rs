@@ -1,6 +1,6 @@
 #![feature(unboxed_closures, fn_traits)]
 
-use bevy::{core::FixedTimestep, math::vec3, prelude::*, sprite::Anchor};
+use bevy::{math::vec3, prelude::*, sprite::Anchor, time::FixedTimestep};
 
 mod game;
 
@@ -89,7 +89,7 @@ fn main() {
         )
         .add_system(update_block_points)
         .add_system(update_board_points)
-        .add_system(bevy::input::system::exit_on_esc_system)
+        .add_system(bevy::window::close_on_esc)
         .run()
 }
 
@@ -110,11 +110,11 @@ fn setup(mut commands: Commands) {
 }
 
 fn setup_ui(commands: &mut Commands) -> UI {
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn_bundle(Camera2dBundle::default());
 
-    // move center coordinates to bottom / left and flip y axis
+    // move (0, 0) to top / left and flip y axis
     let canvas = commands
-        .spawn_bundle(TransformBundle::from_transform(Transform {
+        .spawn_bundle(SpatialBundle::from_transform(Transform {
             translation: vec3(-WINDOW_WIDTH / 2., WINDOW_HEIGHT / 2., 0.),
             scale: vec3(1., -1., 1.),
             ..default()
@@ -143,7 +143,6 @@ fn setup_ui(commands: &mut Commands) -> UI {
             ..default()
         })
         .id();
-    commands.entity(canvas).add_child(board_border);
 
     // board bg
     let board_bg = commands
@@ -161,16 +160,18 @@ fn setup_ui(commands: &mut Commands) -> UI {
             ..default()
         })
         .id();
-    commands.entity(canvas).add_child(board_bg);
 
     let board = commands
-        .spawn_bundle(TransformBundle::from_transform(Transform::from_xyz(
+        .spawn_bundle(SpatialBundle::from_transform(Transform::from_xyz(
             MARGIN_SIZE + BORDER_SIZE,
             MARGIN_SIZE + BORDER_SIZE,
             0.,
         )))
         .id();
-    commands.entity(canvas).add_child(board);
+
+    commands
+        .entity(canvas)
+        .push_children(&[board_border, board_bg, board]);
 
     UI { board }
 }
