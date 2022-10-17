@@ -123,7 +123,7 @@ fn setup_ui(commands: &mut Commands) -> UI {
 
     // board
     let board_width = units_to_px(game::BOARD_WIDTH);
-    let board_height = units_to_px(game::BOARD_HEIGHT);
+    let board_height = units_to_px(game::VISIBLE_BOARD_HEIGHT);
     let board_with_border_width = board_width + BORDER_SIZE * 2.;
     let board_with_border_height = board_height + BORDER_SIZE * 2.;
 
@@ -276,23 +276,42 @@ fn tick(
 
 fn update_board_points(
     game: Res<game::Game>,
-    mut board_points: Query<(&PointComponent, &mut Transform), Without<BlockComponent>>,
+    mut board_points: Query<
+        (&PointComponent, &mut Transform, &mut Visibility),
+        Without<BlockComponent>,
+    >,
 ) {
-    for (point, mut transform) in board_points.iter_mut() {
+    for (point, mut transform, mut visibility) in board_points.iter_mut() {
         let point_pos = game.get_point_position(point.0).unwrap();
-        transform.translation = pos_to_vec3(point_pos);
+        update_point_view(point_pos, &mut transform, &mut visibility);
     }
 }
 
 fn update_block_points(
     game: Res<game::Game>,
-    mut board_points: Query<(&PointComponent, &mut Transform), With<BlockComponent>>,
+    mut board_points: Query<
+        (&PointComponent, &mut Transform, &mut Visibility),
+        With<BlockComponent>,
+    >,
 ) {
     let block = game.active_block();
     let block_pos = game.active_block_position();
-    for (point, mut transform) in board_points.iter_mut() {
+    for (point, mut transform, mut visibility) in board_points.iter_mut() {
         let point_pos = block.get_point_position(point.0).unwrap();
         let point_pos = game::add_positions(block_pos, point_pos);
-        transform.translation = pos_to_vec3(point_pos);
+        update_point_view(point_pos, &mut transform, &mut visibility);
+    }
+}
+
+fn update_point_view(
+    point_pos: game::Position,
+    transform: &mut Transform,
+    visibility: &mut Visibility,
+) {
+    if point_pos.1 >= game::HIDDEN_BOARD_TOP {
+        transform.translation = pos_to_vec3((point_pos.0, point_pos.1 - game::HIDDEN_BOARD_TOP));
+        visibility.is_visible = true;
+    } else {
+        visibility.is_visible = false;
     }
 }

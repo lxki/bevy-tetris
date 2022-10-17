@@ -9,7 +9,9 @@ mod utils;
 use utils::{IdGenerator, Timer};
 
 pub const BOARD_WIDTH: usize = 10;
-pub const BOARD_HEIGHT: usize = 20;
+pub const BOARD_HEIGHT: usize = 24;
+pub const HIDDEN_BOARD_TOP: usize = 4;
+pub const VISIBLE_BOARD_HEIGHT: usize = BOARD_HEIGHT - HIDDEN_BOARD_TOP;
 
 pub(self) const WAIT_DURATION: u32 = 30;
 pub(self) const REPEAT_DURATION: u32 = 5;
@@ -66,7 +68,7 @@ impl Block {
         }
     }
 
-    fn bounding_rect(&self) -> (usize, usize) {
+    fn bounding_rect(&self) -> Position {
         let mut max_x = 0;
         let mut max_y = 0;
         for &point_pos in self.points_pos.values() {
@@ -190,7 +192,7 @@ impl Game {
         self.points_pos.get(&point_id).copied()
     }
 
-    /// Returns `true` if block would collide with any of board points.
+    /// Returns `true` if block will collide with any of board points.
     fn is_block_collides(&self, block: &Block, block_pos: Position) -> bool {
         for point in block.points() {
             let (x, y) = add_positions(block_pos, block.get_point_position(point.id).unwrap());
