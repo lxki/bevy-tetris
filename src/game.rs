@@ -1,5 +1,10 @@
 use std::cmp::max;
+use std::vec;
 use std::{collections::HashMap, num::NonZeroU32};
+
+mod blocks;
+use blocks::*;
+pub use blocks::{get_block_color, BlockType};
 
 mod input;
 pub use input::Input;
@@ -21,11 +26,6 @@ pub type Position = (usize, usize);
 
 pub fn add_positions(a: Position, b: Position) -> Position {
     (a.0 + b.0, a.1 + b.1)
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub enum BlockType {
-    Plank,
 }
 
 pub enum TickChange {
@@ -50,15 +50,19 @@ pub struct Block {
 
 impl Block {
     fn new(id: Id, block_type: BlockType, gen_id: &mut IdGenerator) -> Self {
-        let p0 = Point {
-            id: gen_id(),
-            origin_block_type: block_type,
-        };
+        let block_points = get_block_points(block_type);
 
-        let mut points_pos = HashMap::new();
-        points_pos.insert(p0.id, (0, 0));
+        let mut points = Vec::with_capacity(block_points.len());
+        let mut points_pos = HashMap::with_capacity(block_points.len());
+        for &pos in block_points {
+            let point = Point {
+                id: gen_id(),
+                origin_block_type: block_type,
+            };
 
-        let points = vec![p0];
+            points.push(point);
+            points_pos.insert(point.id, pos);
+        }
 
         Self {
             id,
@@ -117,7 +121,7 @@ pub struct Game {
 impl Game {
     pub fn new() -> Self {
         let mut gen_id = IdGenerator::new();
-        let active_block = Block::new(gen_id(), BlockType::Plank, &mut gen_id);
+        let active_block = Block::new(gen_id(), get_random_block(), &mut gen_id);
         let active_block_pos = (4, 0);
 
         Self {
@@ -204,8 +208,7 @@ impl Game {
     }
 
     fn spawn_block(&mut self) {
-        //todo: choose random block
-        self.active_block = Block::new((self.gen_id)(), BlockType::Plank, &mut self.gen_id);
+        self.active_block = Block::new((self.gen_id)(), get_random_block(), &mut self.gen_id);
         self.active_block_pos = (4, 0);
     }
 

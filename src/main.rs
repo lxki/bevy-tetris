@@ -214,7 +214,7 @@ fn spawn_point(
         .insert(PointComponent(point.id))
         .insert_bundle(SpriteBundle {
             sprite: Sprite {
-                color: Color::GRAY,
+                color: game::get_block_color(point.origin_block_type),
                 anchor: Anchor::BottomLeft,
                 ..default()
             },
