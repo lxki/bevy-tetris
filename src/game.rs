@@ -36,6 +36,8 @@ pub enum TickChange {
     BlockLocked,
     /// New active block has arrived.
     NewBlock,
+    /// Block points was removed.
+    PointRemoved(Id),
 }
 
 #[derive(Clone, Copy)]
@@ -197,7 +199,11 @@ impl Game {
                 self.lock_active_block_to_board(block_pos);
                 changes.push(TickChange::BlockLocked);
 
-                //todo: remove filled rows
+                let filled_rows = self.find_filled_rows();
+                let removed_points = self.remove_rows(&filled_rows);
+                for p in removed_points {
+                    changes.push(TickChange::PointRemoved(p.id));
+                }
 
                 self.spawn_block();
                 changes.push(TickChange::NewBlock);
@@ -248,5 +254,43 @@ impl Game {
             self.board[y][x] = Some(point);
             self.points_pos.insert(point.id, (x, y));
         }
+    }
+
+    fn find_filled_rows(&self) -> Vec<usize> {
+        let mut rows = vec![];
+        for y in 0..BOARD_HEIGHT {
+            if self.board[y].iter().all(|p| p.is_some()) {
+                rows.push(y);
+            }
+        }
+        rows
+    }
+
+    fn remove_rows(&mut self, rows: &[usize]) -> Vec<Point> {
+        let mut removed_points = vec![];
+
+        let mut drop = 0;
+        let mut i = rows.len();
+        for y in (0..BOARD_HEIGHT).rev() {
+            if i > 0 && rows[i - 1] == y {
+                for x in 0..BOARD_WIDTH {
+                    if let Some(p) = self.board[y][x].take() {
+                        self.points_pos.remove(&p.id);
+                        removed_points.push(p);
+                    }
+                }
+                i -= 1;
+                drop += 1;
+            } else if drop > 0 {
+                for x in 0..BOARD_WIDTH {
+                    if let Some(p) = self.board[y][x].take() {
+                        self.board[y + drop][x] = Some(p);
+                        self.points_pos.insert(p.id, (x, y + drop));
+                    }
+                }
+            }
+        }
+
+        removed_points
     }
 }

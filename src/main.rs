@@ -247,6 +247,7 @@ fn tick(
     ui: Res<UI>,
     mut input: ResMut<RawInput>,
     block_points: Query<Entity, With<BlockComponent>>,
+    all_points: Query<(Entity, &PointComponent)>,
 ) {
     let input = input.as_mut();
     let changes = game.tick(input);
@@ -267,6 +268,14 @@ fn tick(
                     game.active_block_position(),
                     ui.board,
                 );
+            }
+            PointRemoved(point_id) => {
+                //todo: find more effective way to find point_entity
+                for (point_entity, point) in all_points.iter() {
+                    if point.0 == point_id {
+                        commands.entity(point_entity).despawn();
+                    }
+                }
             }
         }
     }
