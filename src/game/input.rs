@@ -58,8 +58,7 @@ impl RepeatedAction {
 pub trait Input {
     fn move_left(&self) -> bool;
     fn move_right(&self) -> bool;
-    fn rotate_cw(&self) -> bool;
-    fn rotate_ccw(&self) -> bool;
+    fn rotate(&self) -> bool;
     fn fast_drop(&self) -> bool;
     fn instant_drop(&self) -> bool;
 }
@@ -67,8 +66,7 @@ pub trait Input {
 pub struct SmartInput {
     move_left: RepeatedAction,
     move_right: RepeatedAction,
-    rotate_cw: RepeatedAction,
-    rotate_ccw: RepeatedAction,
+    rotate: RepeatedAction,
     fast_drop: bool,
     instant_drop: bool,
 }
@@ -78,8 +76,7 @@ impl SmartInput {
         Self {
             move_left: RepeatedAction::new(WAIT_DURATION, REPEAT_DURATION),
             move_right: RepeatedAction::new(WAIT_DURATION, REPEAT_DURATION),
-            rotate_cw: RepeatedAction::new(WAIT_DURATION, REPEAT_DURATION),
-            rotate_ccw: RepeatedAction::new(WAIT_DURATION, REPEAT_DURATION),
+            rotate: RepeatedAction::new(WAIT_DURATION, REPEAT_DURATION),
             fast_drop: false,
             instant_drop: false,
         }
@@ -88,8 +85,7 @@ impl SmartInput {
     pub fn tick(&mut self, input: &dyn Input) {
         self.move_left.tick(input.move_left());
         self.move_right.tick(input.move_right());
-        self.rotate_cw.tick(input.rotate_cw());
-        self.rotate_ccw.tick(input.rotate_ccw());
+        self.rotate.tick(input.rotate());
         self.fast_drop = input.fast_drop();
         self.instant_drop = input.instant_drop();
     }
@@ -104,12 +100,8 @@ impl Input for SmartInput {
         self.move_right.active()
     }
 
-    fn rotate_cw(&self) -> bool {
-        self.rotate_cw.active()
-    }
-
-    fn rotate_ccw(&self) -> bool {
-        self.rotate_ccw.active()
+    fn rotate(&self) -> bool {
+        self.rotate.active()
     }
 
     fn fast_drop(&self) -> bool {

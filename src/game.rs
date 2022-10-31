@@ -13,6 +13,9 @@ use input::SmartInput;
 mod utils;
 use utils::{IdGenerator, Timer};
 
+mod rotate;
+use rotate::rotate_block;
+
 pub const BOARD_WIDTH: usize = 10;
 pub const BOARD_HEIGHT: usize = 24;
 pub const HIDDEN_BOARD_TOP: usize = 4;
@@ -72,14 +75,12 @@ impl Block {
         }
     }
 
-    fn bounding_rect(&self) -> Position {
-        let mut max_x = 0;
-        let mut max_y = 0;
-        for &point_pos in self.points_pos.values() {
-            max_x = max(max_x, point_pos.0);
-            max_y = max(max_y, point_pos.1);
-        }
-        (max_x, max_y)
+    pub(self) fn width(&self) -> usize {
+        *self.points_pos.values().map(|(x, _)| x).max().unwrap()
+    }
+
+    pub(self) fn height(&self) -> usize {
+        *self.points_pos.values().map(|(_, y)| y).max().unwrap()
     }
 
     pub fn points(&self) -> &[Point] {
@@ -146,21 +147,37 @@ impl Game {
 
     pub fn tick(&mut self, input: &dyn Input) -> Vec<TickChange> {
         let mut changes = vec![];
-        let block = &self.active_block;
         let mut block_pos = self.active_block_pos;
-        let block_rect = self.active_block.bounding_rect();
         self.input.tick(input);
 
         if self.input.move_left() {
-            if block_pos.0 > 0 && !self.is_block_collides(block, (block_pos.0 - 1, block_pos.1)) {
+            if block_pos.0 > 0
+                && !self.is_block_collides(
+                    self.active_block.points_pos.values(),
+                    (block_pos.0 - 1, block_pos.1),
+                )
+            {
                 block_pos.0 -= 1;
             }
         }
         if self.input.move_right() {
-            if block_pos.0 + block_rect.0 < BOARD_WIDTH - 1
-                && !self.is_block_collides(block, (block_pos.0 + 1, block_pos.1))
+            if block_pos.0 + self.active_block.width() < BOARD_WIDTH - 1
+                && !self.is_block_collides(
+                    self.active_block.points_pos.values(),
+                    (block_pos.0 + 1, block_pos.1),
+                )
             {
                 block_pos.0 += 1;
+            }
+        }
+        if self.input.rotate() {
+            if let Some((new_points_pos, new_block_pos)) =
+                rotate_block(&self.active_block, block_pos, |block_points, block_pos| {
+                    !self.is_block_collides(block_points.iter(), block_pos)
+                })
+            {
+                self.active_block.points_pos = new_points_pos;
+                block_pos = new_block_pos;
             }
         }
 
@@ -171,8 +188,11 @@ impl Game {
         };
 
         if self.drop_timer.tick_and_restart_if_elapsed(drop_speed) {
-            if block_pos.1 + block_rect.1 == BOARD_HEIGHT - 1
-                || self.is_block_collides(block, (block_pos.0, block_pos.1 + 1))
+            if block_pos.1 + self.active_block.height() == BOARD_HEIGHT - 1
+                || self.is_block_collides(
+                    self.active_block.points_pos.values(),
+                    (block_pos.0, block_pos.1 + 1),
+                )
             {
                 self.lock_active_block_to_board(block_pos);
                 changes.push(TickChange::BlockLocked);
@@ -197,9 +217,13 @@ impl Game {
     }
 
     /// Returns `true` if block will collide with any of board points.
-    fn is_block_collides(&self, block: &Block, block_pos: Position) -> bool {
-        for point in block.points() {
-            let (x, y) = add_positions(block_pos, block.get_point_position(point.id).unwrap());
+    fn is_block_collides<'a>(
+        &self,
+        block_points: impl Iterator<Item = &'a Position>,
+        block_pos: Position,
+    ) -> bool {
+        for &point_pos in block_points {
+            let (x, y) = add_positions(block_pos, point_pos);
             if self.board[y][x].is_some() {
                 return true;
             }

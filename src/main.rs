@@ -20,8 +20,7 @@ const TICK_DURATION: f32 = 1. / 60.;
 struct RawInput {
     move_left: bool,
     move_right: bool,
-    rotate_cw: bool,
-    rotate_ccw: bool,
+    rotate: bool,
     fast_drop: bool,
     instant_drop: bool,
 }
@@ -41,12 +40,8 @@ impl game::Input for RawInput {
         self.move_right
     }
 
-    fn rotate_cw(&self) -> bool {
-        self.rotate_cw
-    }
-
-    fn rotate_ccw(&self) -> bool {
-        self.rotate_ccw
+    fn rotate(&self) -> bool {
+        self.rotate
     }
 
     fn fast_drop(&self) -> bool {
@@ -240,6 +235,9 @@ fn check_input(bevy_input: Res<Input<KeyCode>>, mut input: ResMut<RawInput>) {
     }
     if bevy_input.pressed(KeyCode::Down) {
         input.fast_drop = true;
+    }
+    if bevy_input.pressed(KeyCode::Up) {
+        input.rotate = true;
     }
 }
 
