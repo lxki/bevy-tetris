@@ -101,12 +101,16 @@ impl GameRules {
         GameRules {}
     }
 
-    fn drop_speed(&self) -> u32 {
+    fn drop_freq(&self) -> u32 {
         10
     }
 
-    fn fast_drop_speed(&self) -> u32 {
-        max(self.drop_speed() / 2, 1)
+    fn fast_drop_freq(&self) -> u32 {
+        max(self.drop_freq() / 2, 1)
+    }
+
+    fn lockup_duration(&self) -> u32 {
+        30
     }
 }
 
@@ -119,6 +123,8 @@ pub struct Game {
     active_block: Block,
     active_block_pos: Position,
     drop_timer: Timer,
+    locking: bool,
+    lockup_timer: Timer,
 }
 
 impl Game {
@@ -136,6 +142,8 @@ impl Game {
             active_block: active_block,
             active_block_pos: active_block_pos,
             drop_timer: Timer::new(),
+            locking: false,
+            lockup_timer: Timer::new(),
         }
     }
 
@@ -183,34 +191,47 @@ impl Game {
             }
         }
 
-        let drop_speed = if self.input.fast_drop() {
-            self.rules.fast_drop_speed()
+        let can_drop = block_pos.1 + self.active_block.height() < BOARD_HEIGHT - 1
+            && !self.is_block_collides(
+                self.active_block.points_pos.values(),
+                (block_pos.0, block_pos.1 + 1),
+            );
+
+        if !can_drop && !self.locking {
+            self.locking = true;
+            self.lockup_timer.restart();
+        }
+
+        let drop_freq = if self.input.fast_drop() {
+            self.rules.fast_drop_freq()
         } else {
-            self.rules.drop_speed()
+            self.rules.drop_freq()
         };
 
-        if self.drop_timer.tick_and_restart_if_elapsed(drop_speed) {
-            if block_pos.1 + self.active_block.height() == BOARD_HEIGHT - 1
-                || self.is_block_collides(
-                    self.active_block.points_pos.values(),
-                    (block_pos.0, block_pos.1 + 1),
-                )
-            {
-                self.lock_active_block_to_board(block_pos);
-                changes.push(TickChange::BlockLocked);
+        //todo: instantly lockup block if it can't move anywhere (check moves to left/right)
+        if self.locking
+            && self
+                .lockup_timer
+                .tick_and_restart_if_elapsed(self.rules.lockup_duration())
+        {
+            self.lock_active_block_to_board(block_pos);
+            changes.push(TickChange::BlockLocked);
 
-                let filled_rows = self.find_filled_rows();
-                let removed_points = self.remove_rows(&filled_rows);
-                for p in removed_points {
-                    changes.push(TickChange::PointRemoved(p.id));
-                }
-
-                self.spawn_block();
-                changes.push(TickChange::NewBlock);
-            } else {
-                block_pos.1 += 1;
-                self.active_block_pos = block_pos;
+            let filled_rows = self.find_filled_rows();
+            let removed_points = self.remove_rows(&filled_rows);
+            for p in removed_points {
+                changes.push(TickChange::PointRemoved(p.id));
             }
+
+            self.spawn_block();
+            changes.push(TickChange::NewBlock);
+            self.locking = false;
+        } else if (self.locking || self.drop_timer.tick_and_restart_if_elapsed(drop_freq))
+            && can_drop
+        {
+            block_pos.1 += 1;
+            self.active_block_pos = block_pos;
+            self.locking = false;
         } else {
             self.active_block_pos = block_pos;
         }
