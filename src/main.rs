@@ -1,6 +1,9 @@
 #![feature(unboxed_closures, fn_traits)]
 
+use std::collections::HashMap;
+
 use bevy::{math::vec3, prelude::*, sprite::Anchor, time::FixedTimestep};
+use game::Id;
 
 mod game;
 
@@ -53,8 +56,11 @@ impl game::Input for RawInput {
     }
 }
 
+type PointEntities = HashMap<Id, Entity>;
+
 struct UI {
     board: Entity,
+    points: PointEntities,
 }
 
 #[derive(Component)]
@@ -97,8 +103,8 @@ fn pos_to_vec3(pos: game::Position) -> Vec3 {
 }
 
 fn setup(mut commands: Commands) {
-    let ui = setup_ui(&mut commands);
-    let game = setup_game(&mut commands, &ui);
+    let mut ui = setup_ui(&mut commands);
+    let game = setup_game(&mut commands, &mut ui);
 
     commands.insert_resource(ui);
     commands.insert_resource(game);
@@ -168,16 +174,20 @@ fn setup_ui(commands: &mut Commands) -> UI {
         .entity(canvas)
         .push_children(&[board_border, board_bg, board]);
 
-    UI { board }
+    UI {
+        board,
+        points: HashMap::new(),
+    }
 }
 
-fn setup_game(commands: &mut Commands, ui: &UI) -> game::Game {
+fn setup_game(commands: &mut Commands, ui: &mut UI) -> game::Game {
     let game = game::Game::new();
     spawn_block(
         commands,
         game.active_block(),
         game.active_block_position(),
         ui.board,
+        &mut ui.points,
     );
     game
 }
@@ -187,11 +197,12 @@ fn spawn_block(
     block: &game::Block,
     block_pos: game::Position,
     parent: Entity,
+    point_entities: &mut PointEntities,
 ) {
     for point in block.points() {
         let point_pos = block.get_point_position(point.id).unwrap();
         let point_pos = game::add_positions(block_pos, point_pos);
-        let point_entity = spawn_point(commands, point, point_pos, parent);
+        let point_entity = spawn_point(commands, point, point_pos, parent, point_entities);
         commands
             .entity(point_entity)
             .insert(BlockComponent(block.id));
@@ -203,6 +214,7 @@ fn spawn_point(
     point: &game::Point,
     point_pos: game::Position,
     parent: Entity,
+    point_entities: &mut PointEntities,
 ) -> Entity {
     let point_entity = commands
         .spawn()
@@ -223,6 +235,7 @@ fn spawn_point(
         .id();
 
     commands.entity(parent).add_child(point_entity);
+    point_entities.insert(point.id, point_entity);
     point_entity
 }
 
@@ -244,10 +257,9 @@ fn check_input(bevy_input: Res<Input<KeyCode>>, mut input: ResMut<RawInput>) {
 fn tick(
     mut commands: Commands,
     mut game: ResMut<game::Game>,
-    ui: Res<UI>,
+    mut ui: ResMut<UI>,
     mut input: ResMut<RawInput>,
     block_points: Query<Entity, With<BlockComponent>>,
-    all_points: Query<(Entity, &PointComponent)>,
 ) {
     let input = input.as_mut();
     let changes = game.tick(input);
@@ -267,15 +279,12 @@ fn tick(
                     game.active_block(),
                     game.active_block_position(),
                     ui.board,
+                    &mut ui.points,
                 );
             }
             PointRemoved(point_id) => {
-                //todo: find more effective way to find point_entity
-                for (point_entity, point) in all_points.iter() {
-                    if point.0 == point_id {
-                        commands.entity(point_entity).despawn();
-                    }
-                }
+                let point_entity = ui.points.remove(&point_id).unwrap();
+                commands.entity(point_entity).despawn();
             }
         }
     }
