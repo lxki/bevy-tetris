@@ -36,7 +36,7 @@ pub enum TickChange {
     BlockLocked,
     /// New active block has arrived.
     NewBlock,
-    /// Block points was removed.
+    /// Board point was removed.
     PointRemoved(Id),
 }
 
